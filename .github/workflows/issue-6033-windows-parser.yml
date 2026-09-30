@@ -1,0 +1,55 @@
+name: Issue 6033 Windows Parser Check
+
+on:
+  push:
+    branches:
+      - issue-6033-parser-header-win-ci
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install NASM
+        uses: ilammy/setup-nasm@v1.5.2
+
+      - name: Prepare build dependencies
+        shell: pwsh
+        run: |
+          ./scripts/prepare-machine.ps1 -ForBuild -Tls schannel
+
+      - name: Build Debug x64 with tests
+        shell: pwsh
+        run: |
+          ./scripts/build.ps1 `
+            -Config Debug `
+            -Platform windows `
+            -Arch x64 `
+            -Tls schannel `
+            -DisablePerf `
+            -DynamicCRT `
+            -Generator "Visual Studio 17 2022"
+
+      - name: Run raw datapath tests
+        shell: pwsh
+        run: |
+          $TestExe = ".\artifacts\bin\windows\x64_Debug_schannel\msquicplatformtest.exe"
+
+          if (!(Test-Path $TestExe)) {
+            throw "msquicplatformtest.exe was not generated"
+          }
+
+          & $TestExe --gtest_filter="RawDataPathTest.*"
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "RawDataPathTest failed with exit code $LASTEXITCODE"
+          }
