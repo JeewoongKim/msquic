@@ -14,7 +14,7 @@ Abstract:
 #include <stddef.h>
 #include <stdint.h>
 
-#include "datapath_raw.h"
+#include "datapath_raw_parse.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
