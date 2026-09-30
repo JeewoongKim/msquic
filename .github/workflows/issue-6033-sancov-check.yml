@@ -46,7 +46,7 @@ jobs:
         run: |
           set -euxo pipefail
 
-          LIB="build/issue6033-sanco/bin/Release/libmsquic.a"
+          LIB="build/issue6033-sancov/bin/Release/libmsquic.a"
 
           test -f "$LIB"
 
