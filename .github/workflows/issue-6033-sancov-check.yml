@@ -135,7 +135,7 @@ jobs:
 
           /tmp/datapath_raw_fuzz \
             /tmp/raw-corpus \
-            -max_total_time=300 \
+            -max_total_time=10800 \
             -max_len=1500 \
             -artifact_prefix=/tmp/raw-artifacts/ \
             -print_final_stats=1 \
