@@ -87,45 +87,43 @@ jobs:
       - name: Generate initial corpus
         shell: bash
         run: |
+          set -euxo pipefail
+
           mkdir -p /tmp/raw-corpus
 
           python3 - <<'PY'
-          import ipaddress
-          import struct
+          from pathlib import Path
 
-          dst = bytes.fromhex("020000000001")
-          src = bytes.fromhex("020000000002")
+          # Source:
+          # src/platform/unittest/RawDataPathTest.cpp
+          # InitializeIpv4UdpFrame()
 
-          def ethernet(ether_type):
-              return struct.pack("!6s6sH", dst, src, ether_type)
-
-          ipv4 = struct.pack(
-              "!BBHHHBBH4s4s",
-              0x45, 0x2A, 32, 0, 0, 64, 17, 0,
-              bytes([192, 0, 2, 1]),
-              bytes([192, 0, 2, 2])
+          ethernet = bytes.fromhex(
+              "02 00 00 00 00 01"
+              " 02 00 00 00 00 02"
+              " 08 00"
           )
 
-          udp = struct.pack("!HHHH", 50000, 443, 12, 0)
-
-          with open("/tmp/raw-corpus/ipv4_udp", "wb") as f:
-              f.write(ethernet(0x0800) + ipv4 + udp + b"quic")
-
-          ipv6 = struct.pack(
-              "!IHBB16s16s",
-              6 << 28, 20, 6, 64,
-              ipaddress.IPv6Address("2001:db8::1").packed,
-              ipaddress.IPv6Address("2001:db8::2").packed
+          ipv4 = bytes.fromhex(
+              "45 2a 00 20"
+              " 00 00 00 00"
+              " 40 11 00 00"
+              " c0 00 02 01"
+              " c0 00 02 02"
           )
 
-          tcp = (
-              struct.pack("!HHII", 50000, 443, 1, 0)
-              + bytes([0x50, 0x02])
-              + struct.pack("!HHH", 8192, 0, 0)
+          udp = bytes.fromhex(
+              "c3 50 01 bb"
+              " 00 0c 00 00"
           )
 
-          with open("/tmp/raw-corpus/ipv6_tcp", "wb") as f:
-              f.write(ethernet(0x86DD) + ipv6 + tcp)
+          payload = bytes.fromhex("de ad be ef")
+
+          frame = ethernet + ipv4 + udp + payload
+
+          assert len(frame) == 46
+
+          Path("/tmp/raw-corpus/ipv4_udp").write_bytes(frame)
           PY
 
       - name: Run coverage-guided fuzzing
@@ -133,10 +131,20 @@ jobs:
         run: |
           set -euxo pipefail
 
+          mkdir -p /tmp/raw-artifacts
+
           /tmp/datapath_raw_fuzz \
             /tmp/raw-corpus \
-            -runs=5000 \
+            -max_total_time=300 \
             -max_len=1500 \
-            -print_coverage=1 \
+            -artifact_prefix=/tmp/raw-artifacts/ \
             -print_final_stats=1 \
             2>&1 | tee /tmp/fuzz.log
+
+      - name: Upload failure-inducing inputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-datapath-failure-inputs
+          path: /tmp/raw-artifacts/
+          if-no-files-found: ignore
