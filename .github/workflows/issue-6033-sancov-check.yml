@@ -39,17 +39,18 @@ jobs:
             -DQUIC_TLS_LIB=quictls
 
           cmake --build build/issue6033-sancov \
-            --target msquic --parallel 2
+            --target msquic_lib --parallel 2
 
       - name: Verify parser instrumentation
         shell: bash
         run: |
           set -euxo pipefail
 
-          LIB="$(find build/issue6033-sancov \
-            -name libmsquic.a -print -quit)"
+          LIB="build/issue6033-sanco/bin/Release/libmsquic.a"
 
-          test -n "$LIB"
+          test -f "$LIB"
+
+          ar t "$LIB" | grep 'datapath_raw_parse'
 
           nm -A "$LIB" > /tmp/msquic-symbols.txt
 
