@@ -1,0 +1,138 @@
+name: Issue 6033 Sanitizer Coverage Check
+
+on:
+  push:
+    branches:
+      - issue-6033-sancov-check
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build instrumented MsQuic
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          FLAGS="-g -fsanitize-coverage=trace-pc-guard,trace-cmp -Wno-error=invalid-unevaluated-string"
+
+          CC=clang CXX=clang++ \
+          CFLAGS="$FLAGS" CXXFLAGS="$FLAGS" \
+          cmake -S . -B build/issue6033-sancov \
+            -DQUIC_BUILD_SHARED=OFF \
+            -DQUIC_BUILD_TEST=OFF \
+            -DQUIC_BUILD_TOOLS=OFF \
+            -DQUIC_BUILD_PERF=OFF \
+            -DQUIC_ENABLE_LOGGING=OFF \
+            -DQUIC_ENABLE_ASAN=ON \
+            -DQUIC_SKIP_SANITIZE_SUBMODULES=ON \
+            -DQUIC_TLS_LIB=quictls
+
+          cmake --build build/issue6033-sancov \
+            --target msquic --parallel 2
+
+      - name: Verify parser instrumentation
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          LIB="$(find build/issue6033-sancov \
+            -name libmsquic.a -print -quit)"
+
+          test -n "$LIB"
+
+          nm -A "$LIB" > /tmp/msquic-symbols.txt
+
+          grep 'datapath_raw_parse' /tmp/msquic-symbols.txt |
+            grep '__sanitizer_cov_trace_pc_guard'
+
+          echo "$LIB" > /tmp/msquic-library-path
+
+      - name: Build fuzz target
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          clang \
+            -g -O1 \
+            -fsanitize=fuzzer-no-link,address \
+            -I"$GITHUB_WORKSPACE/src/platform" \
+            -I"$GITHUB_WORKSPACE/src/inc" \
+            -c src/fuzzing/datapath_raw_fuzz.c \
+            -o /tmp/datapath_raw_fuzz.o
+
+          LIB="$(cat /tmp/msquic-library-path)"
+
+          clang++ \
+            -g \
+            -fsanitize=fuzzer,address \
+            /tmp/datapath_raw_fuzz.o \
+            "$LIB" \
+            -o /tmp/datapath_raw_fuzz
+
+      - name: Generate initial corpus
+        shell: bash
+        run: |
+          mkdir -p /tmp/raw-corpus
+
+          python3 - <<'PY'
+          import ipaddress
+          import struct
+
+          dst = bytes.fromhex("020000000001")
+          src = bytes.fromhex("020000000002")
+
+          def ethernet(ether_type):
+              return struct.pack("!6s6sH", dst, src, ether_type)
+
+          ipv4 = struct.pack(
+              "!BBHHHBBH4s4s",
+              0x45, 0x2A, 32, 0, 0, 64, 17, 0,
+              bytes([192, 0, 2, 1]),
+              bytes([192, 0, 2, 2])
+          )
+
+          udp = struct.pack("!HHHH", 50000, 443, 12, 0)
+
+          with open("/tmp/raw-corpus/ipv4_udp", "wb") as f:
+              f.write(ethernet(0x0800) + ipv4 + udp + b"quic")
+
+          ipv6 = struct.pack(
+              "!IHBB16s16s",
+              6 << 28, 20, 6, 64,
+              ipaddress.IPv6Address("2001:db8::1").packed,
+              ipaddress.IPv6Address("2001:db8::2").packed
+          )
+
+          tcp = (
+              struct.pack("!HHII", 50000, 443, 1, 0)
+              + bytes([0x50, 0x02])
+              + struct.pack("!HHH", 8192, 0, 0)
+          )
+
+          with open("/tmp/raw-corpus/ipv6_tcp", "wb") as f:
+              f.write(ethernet(0x86DD) + ipv6 + tcp)
+          PY
+
+      - name: Run coverage-guided fuzzing
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          /tmp/datapath_raw_fuzz \
+            /tmp/raw-corpus \
+            -runs=5000 \
+            -max_len=1500 \
+            -print_coverage=1 \
+            -print_final_stats=1 \
+            2>&1 | tee /tmp/fuzz.log
