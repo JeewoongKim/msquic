@@ -1,0 +1,74 @@
+name: Issue 6033 Fuzz Harness Check
+
+on:
+  push:
+    branches:
+      - issue-6033-fuzzing-harness-ci
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz-harness:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build static MsQuic
+        shell: pwsh
+        run: |
+          ./scripts/build.ps1 `
+            -Static `
+            -DisableTest `
+            -DisablePerf `
+            -DisableLogs `
+            -Parallel 1
+
+      - name: Compile and link raw datapath fuzzer
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          BUILD_CONFIG="$(find . -name msquic-config.cmake -print -quit)"
+          test -n "$BUILD_CONFIG"
+
+          BUILD_DIR="$(dirname "$BUILD_CONFIG")"
+
+          LIBMSQUICDIR="$(
+            cmake -LAH "$BUILD_DIR/CMakeCache.txt" |
+              grep QUIC_OUTPUT_DIR |
+              cut -d= -f2
+          )"
+
+          QUICTLSLIB="$(
+            cmake -LAH "$BUILD_DIR/CMakeCache.txt" |
+              grep QUIC_TLS_LIB |
+              cut -d= -f2
+          )"
+
+          clang \
+            -DCX_PLATFORM_LINUX \
+            -DQUIC_TEST_APIS \
+            -I"$GITHUB_WORKSPACE/src/platform" \
+            -I"$GITHUB_WORKSPACE/src/test" \
+            -I"$GITHUB_WORKSPACE/src/inc" \
+            -I"$GITHUB_WORKSPACE/src/generated/common" \
+            -I"$GITHUB_WORKSPACE/src/generated/linux" \
+            -I"$GITHUB_WORKSPACE/build/linux/x64_$QUICTLSLIB/_deps/opensslquic-build/$QUICTLSLIB/include" \
+            -c "$GITHUB_WORKSPACE/src/fuzzing/datapath_raw_fuzz.c" \
+            -o /tmp/datapath_raw_fuzz.o
+
+          clang++ \
+            -fsanitize=fuzzer \
+            /tmp/datapath_raw_fuzz.o \
+            "$LIBMSQUICDIR/libmsquic.a" \
+            -o /tmp/datapath_raw_fuzz
+
+      - name: Smoke test raw datapath fuzzer
+        shell: bash
+        run: |
+          /tmp/datapath_raw_fuzz -runs=100
