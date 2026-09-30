@@ -24,7 +24,7 @@ jobs:
         run: |
           set -euxo pipefail
 
-          FLAGS="-g -fsanitize-coverage=trace-pc-guard,trace-cmp -Wno-error=invalid-unevaluated-string"
+          FLAGS="-g -fsanitize=fuzzer-no-link -Wno-error=invalid-unevaluated-string"
 
           CC=clang CXX=clang++ \
           CFLAGS="$FLAGS" CXXFLAGS="$FLAGS" \
@@ -55,7 +55,10 @@ jobs:
           nm -A "$LIB" > /tmp/msquic-symbols.txt
 
           grep 'datapath_raw_parse' /tmp/msquic-symbols.txt |
-            grep '__sanitizer_cov_trace_pc_guard'
+            grep '__sanitizer_cov_8bit_counters_init'
+
+          grep 'datapath_raw_parse' /tmp/msquic-symbols.txt |
+            grep '__sanitizer_cov_pcs_init'
 
           echo "$LIB" > /tmp/msquic-library-path
 
