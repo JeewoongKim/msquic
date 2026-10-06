@@ -1,0 +1,88 @@
+name: OSS-Fuzz Prototype
+
+on:
+  push:
+    branches:
+      - issue-6033-oss-fuzz-prototype
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout MsQuic
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Clone OSS-Fuzz
+        run: |
+          git clone --depth=1 \
+            https://github.com/google/oss-fuzz.git \
+            "$RUNNER_TEMP/oss-fuzz"
+
+      - name: Replace OSS-Fuzz build script
+        working-directory: ${{ runner.temp }}/oss-fuzz
+        run: |
+          cat > projects/msquic/build.sh <<'SCRIPT'
+          #!/bin/bash -eu
+
+          # Temporary workaround for clang-18.
+          export CFLAGS="$CFLAGS     -Wno-error=invalid-unevaluated-string"
+          export CXXFLAGS="$CXXFLAGS -Wno-error=invalid-unevaluated-string"
+
+          bash ./scripts/oss-fuzz.sh
+          SCRIPT
+
+          chmod +x projects/msquic/build.sh
+          cat projects/msquic/build.sh
+
+      - name: Build fuzzers
+        working-directory: ${{ runner.temp }}/oss-fuzz
+        run: |
+          python3 infra/helper.py build_fuzzers \
+            --clean \
+            --engine libfuzzer \
+            --sanitizer address \
+            msquic \
+            "$GITHUB_WORKSPACE"
+
+      - name: Verify fuzz targets
+        working-directory: ${{ runner.temp }}/oss-fuzz
+        run: |
+          ls -lh build/out/msquic
+
+          test -x build/out/msquic/fuzz
+          test -x build/out/msquic/datapath_raw_fuzz
+          test -x build/out/msquic/spinquic
+
+      - name: Check fuzz
+        working-directory: ${{ runner.temp }}/oss-fuzz
+        run: |
+          python3 infra/helper.py check_build \
+            --engine libfuzzer \
+            --sanitizer address \
+            msquic \
+            fuzz
+
+      - name: Check datapath_raw_fuzz
+        working-directory: ${{ runner.temp }}/oss-fuzz
+        run: |
+          python3 infra/helper.py check_build \
+            --engine libfuzzer \
+            --sanitizer address \
+            msquic \
+            datapath_raw_fuzz
+
+      - name: Check spinquic
+        working-directory: ${{ runner.temp }}/oss-fuzz
+        run: |
+          python3 infra/helper.py check_build \
+            --engine libfuzzer \
+            --sanitizer address \
+            msquic \
+            spinquic
