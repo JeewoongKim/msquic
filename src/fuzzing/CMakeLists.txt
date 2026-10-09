@@ -79,18 +79,18 @@ set_target_properties(fuzz PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/fuzzers"
 )
 
-add_executable(spinquic
+add_executable(oss_fuzz_spinquic
     "${PROJECT_SOURCE_DIR}/src/tools/spin/spinquic.cpp"
 )
 
-target_compile_definitions(spinquic PRIVATE
+target_compile_definitions(oss_fuzz_spinquic PRIVATE
     CX_PLATFORM_LINUX
     QUIC_TEST_APIS
     FUZZING
     QUIC_BUILD_STATIC
 )
 
-target_include_directories(spinquic PRIVATE
+target_include_directories(oss_fuzz_spinquic PRIVATE
     "${PROJECT_SOURCE_DIR}/src/test"
     "${PROJECT_SOURCE_DIR}/src/platform"
     "${PROJECT_SOURCE_DIR}/src/generated/common"
@@ -100,13 +100,14 @@ target_include_directories(spinquic PRIVATE
     "${PROJECT_SOURCE_DIR}/submodules/googletest/googletest"
 )
 
-target_link_libraries(spinquic PRIVATE
+target_link_libraries(oss_fuzz_spinquic PRIVATE
     inc
     msquic
     ${FUZZING_ENGINE}
 )
 
-set_target_properties(spinquic PROPERTIES
+set_target_properties(oss_fuzz_spinquic PROPERTIES
+    OUTPUT_NAME "spinquic"
     LINKER_LANGUAGE CXX
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/fuzzers"
     RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/fuzzers"
@@ -117,5 +118,5 @@ add_custom_target(all_fuzzers
     DEPENDS
         datapath_raw_fuzz
         fuzz
-        spinquic
+        oss_fuzz_spinquic
 )
