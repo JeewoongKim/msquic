@@ -54,13 +54,17 @@ jobs:
 
           # Build only the first fuzzer.
           cmake --build "$BUILD_DIR" \
-              --target datapath_raw_fuzz \
+              --target datapath_raw_fuzz fuzz \
               --parallel 1
 
           # Deliver the fuzzer executable to OSS-Fuzz.
           install -m 755 \
               "$BUILD_DIR/fuzzers/datapath_raw_fuzz" \
               "$OUT/datapath_raw_fuzz"
+
+          install -m 755 \
+              "$BUILD_DIR/fuzzers/fuzz" \
+              "$OUT/fuzz"
           SCRIPT
 
           chmod +x projects/msquic/build.sh
@@ -89,3 +93,12 @@ jobs:
             --sanitizer address \
             msquic \
             datapath_raw_fuzz
+
+      - name: Check fuzz
+        working-directory: ${{ runner.temp }}/oss-fuzz
+        run: |
+          python3 infra/helper.py check_build \
+            --engine libfuzzer \
+            --sanitizer address \
+            msquic \
+            fuzz
