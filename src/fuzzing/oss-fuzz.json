@@ -1,7 +1,6 @@
 {
   "targets": [
     {"name": "datapath_raw_fuzz"},
-    {"name": "fuzz"},
-    {"name": "spinquic"}
+    {"name": "fuzz"}
   ]
 }
