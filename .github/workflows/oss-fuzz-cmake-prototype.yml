@@ -62,10 +62,15 @@ jobs:
           )
           expected = {entry["name"] for entry in manifest["targets"]}
 
+          # Exclude the OSS-Fuzz infrastructure executable.
+          infrastructure = {"llvm-symbolizer"}
+
           actual = {
               path.name
               for path in out.iterdir()
-              if path.is_file() and os.access(path, os.X_OK)
+              if path.is_file()
+              and os.access(path, os.X_OK)
+              and path.name not in infrastructure
           }
 
           print("Expected:", sorted(expected))
