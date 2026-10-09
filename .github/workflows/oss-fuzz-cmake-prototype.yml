@@ -95,9 +95,6 @@ jobs:
           print("Packaged options:", sorted(actual_options))
 
           assert actual_options == expected_options
-
-          options_file = out / "datapath_raw_fuzz.options"
-          assert options_file.read_text() == "[libfuzzer]\nmax_len = 4096\n"
           PY
 
       - name: Check all packaged fuzzers
@@ -107,17 +104,3 @@ jobs:
             --engine libfuzzer \
             --sanitizer address \
             msquic
-
-      - name: Verify libFuzzer runtime options
-        working-directory: ${{ runner.temp }}/oss-fuzz
-        run: |
-          set -o pipefail
-
-          python3 infra/helper.py run_fuzzer \
-            --engine libfuzzer \
-            --sanitizer address \
-            msquic datapath_raw_fuzz -- -runs=1 \
-            2>&1 | tee "$RUNNER_TEMP/fuzzer-runtime.log"
-
-          grep -F -- '-max_len=4096' \
-            "$RUNNER_TEMP/fuzzer-runtime.log"

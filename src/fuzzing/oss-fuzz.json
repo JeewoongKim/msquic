@@ -1,13 +1,6 @@
 {
   "targets": [
-    {
-      "name": "datapath_raw_fuzz",
-      "options": {
-        "libfuzzer": {
-          "max_len": 4096
-        }
-      }
-    },
+    {"name": "datapath_raw_fuzz"},
     {"name": "fuzz"},
     {"name": "spinquic"}
   ]

@@ -15,103 +15,57 @@ separate_arguments(
     "$ENV{LIB_FUZZING_ENGINE}"
 )
 
-add_executable(datapath_raw_fuzz
-    datapath_raw_fuzz.c
+function(add_oss_fuzzer target source)
+    add_executable(${target} "${source}")
+
+    target_compile_definitions(${target} PRIVATE
+        CX_PLATFORM_LINUX
+        QUIC_TEST_APIS
+    )
+
+    target_include_directories(${target} PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/test"
+        "${PROJECT_SOURCE_DIR}/src/platform"
+        "${PROJECT_SOURCE_DIR}/src/generated/common"
+        "${PROJECT_SOURCE_DIR}/src/generated/linux"
+        "${PROJECT_BINARY_DIR}/_deps/opensslquic-build/${QUIC_TLS_LIB}/include"
+        "${PROJECT_SOURCE_DIR}/submodules/googletest/googletest/include"
+        "${PROJECT_SOURCE_DIR}/submodules/googletest/googletest"
+    )
+
+    target_link_libraries(${target} PRIVATE
+        inc
+        msquic
+        ${FUZZING_ENGINE}
+    )
+
+    set_target_properties(${target} PROPERTIES
+        LINKER_LANGUAGE CXX
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/fuzzers"
+        RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/fuzzers"
+        RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/fuzzers"
+    )
+endfunction()
+
+add_oss_fuzzer(datapath_raw_fuzz
+    "${CMAKE_CURRENT_SOURCE_DIR}/datapath_raw_fuzz.c"
 )
 
-target_compile_definitions(datapath_raw_fuzz PRIVATE
-    CX_PLATFORM_LINUX
-    QUIC_TEST_APIS
+add_oss_fuzzer(fuzz
+    "${CMAKE_CURRENT_SOURCE_DIR}/fuzz.cc"
 )
 
-target_include_directories(datapath_raw_fuzz PRIVATE
-    "${PROJECT_SOURCE_DIR}/src/test"
-    "${PROJECT_SOURCE_DIR}/src/platform"
-    "${PROJECT_SOURCE_DIR}/src/generated/common"
-    "${PROJECT_SOURCE_DIR}/src/generated/linux"
-    "${PROJECT_BINARY_DIR}/_deps/opensslquic-build/${QUIC_TLS_LIB}/include"
-    "${PROJECT_SOURCE_DIR}/submodules/googletest/googletest/include"
-    "${PROJECT_SOURCE_DIR}/submodules/googletest/googletest"
-)
-
-target_link_libraries(datapath_raw_fuzz PRIVATE
-    inc
-    msquic
-    ${FUZZING_ENGINE}
-)
-
-set_target_properties(datapath_raw_fuzz PROPERTIES
-    LINKER_LANGUAGE CXX
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/fuzzers"
-    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/fuzzers"
-    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/fuzzers"
-)
-
-add_executable(fuzz
-    fuzz.cc
-)
-
-target_compile_definitions(fuzz PRIVATE
-    CX_PLATFORM_LINUX
-    QUIC_TEST_APIS
-)
-
-target_include_directories(fuzz PRIVATE
-    "${PROJECT_SOURCE_DIR}/src/test"
-    "${PROJECT_SOURCE_DIR}/src/platform"
-    "${PROJECT_SOURCE_DIR}/src/generated/common"
-    "${PROJECT_SOURCE_DIR}/src/generated/linux"
-    "${PROJECT_BINARY_DIR}/_deps/opensslquic-build/${QUIC_TLS_LIB}/include"
-    "${PROJECT_SOURCE_DIR}/submodules/googletest/googletest/include"
-    "${PROJECT_SOURCE_DIR}/submodules/googletest/googletest"
-)
-
-target_link_libraries(fuzz PRIVATE
-    inc
-    msquic
-    ${FUZZING_ENGINE}
-)
-
-set_target_properties(fuzz PROPERTIES
-    LINKER_LANGUAGE CXX
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/fuzzers"
-    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/fuzzers"
-    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/fuzzers"
-)
-
-add_executable(oss_fuzz_spinquic
+add_oss_fuzzer(oss_fuzz_spinquic
     "${PROJECT_SOURCE_DIR}/src/tools/spin/spinquic.cpp"
 )
 
 target_compile_definitions(oss_fuzz_spinquic PRIVATE
-    CX_PLATFORM_LINUX
-    QUIC_TEST_APIS
     FUZZING
     QUIC_BUILD_STATIC
 )
 
-target_include_directories(oss_fuzz_spinquic PRIVATE
-    "${PROJECT_SOURCE_DIR}/src/test"
-    "${PROJECT_SOURCE_DIR}/src/platform"
-    "${PROJECT_SOURCE_DIR}/src/generated/common"
-    "${PROJECT_SOURCE_DIR}/src/generated/linux"
-    "${PROJECT_BINARY_DIR}/_deps/opensslquic-build/${QUIC_TLS_LIB}/include"
-    "${PROJECT_SOURCE_DIR}/submodules/googletest/googletest/include"
-    "${PROJECT_SOURCE_DIR}/submodules/googletest/googletest"
-)
-
-target_link_libraries(oss_fuzz_spinquic PRIVATE
-    inc
-    msquic
-    ${FUZZING_ENGINE}
-)
-
 set_target_properties(oss_fuzz_spinquic PROPERTIES
     OUTPUT_NAME "spinquic"
-    LINKER_LANGUAGE CXX
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/fuzzers"
-    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/fuzzers"
-    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/fuzzers"
 )
 
 add_custom_target(all_fuzzers
