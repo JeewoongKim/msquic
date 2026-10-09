@@ -79,6 +79,25 @@ jobs:
           assert actual == expected, (
               f"Packaging mismatch: expected {expected}, got {actual}"
           )
+
+          expected_options = {
+              f'{entry["name"]}.options'
+              for entry in manifest["targets"]
+              if "options" in entry
+          }
+
+          actual_options = {
+              path.name
+              for path in out.glob("*.options")
+          }
+
+          print("Expected options:", sorted(expected_options))
+          print("Packaged options:", sorted(actual_options))
+
+          assert actual_options == expected_options
+
+          options_file = out / "datapath_raw_fuzz.options"
+          assert options_file.read_text() == "[libfuzzer]\nmax_len = 4096\n"
           PY
 
       - name: Check all packaged fuzzers

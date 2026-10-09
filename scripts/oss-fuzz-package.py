@@ -23,8 +23,10 @@ def package(manifest_path, bin_dir, out_dir):
 
     # Validate the full manifest before copying any files.
     for entry in targets:
-        if not isinstance(entry, dict) or set(entry) != {"name"}:
-            raise ValueError("Each target must contain only 'name'")
+        if not isinstance(entry, dict) or set(entry) not in (
+            {"name"}, {"name", "options"}
+        ):
+            raise ValueError("Invalid target entry")
 
         name = entry["name"]
 
@@ -43,12 +45,46 @@ def package(manifest_path, bin_dir, out_dir):
         if not os.access(source, os.X_OK):
             raise PermissionError(f"Not executable: {source}")
 
-        sources.append((name, source))
+        option_text = None
+
+        if "options" in entry:
+            options = entry["options"]
+
+            if not isinstance(options, dict) or set(options) != {"libfuzzer"}:
+                raise ValueError(f"Invalid options for {name}")
+
+            flags = options["libfuzzer"]
+
+            if not isinstance(flags, dict) or not flags:
+                raise ValueError(f"Invalid libFuzzer options for {name}")
+
+            allowed_flags = {"max_len", "timeout", "rss_limit_mb"}
+
+            for flag, value in flags.items():
+                if (
+                    flag not in allowed_flags
+                    or type(value) is not int
+                    or value <= 0
+                ):
+                    raise ValueError(f"Invalid libFuzzer option: {flag}={value!r}")
+
+            option_text = "[libfuzzer]\n" + "".join(
+                f"{flag} = {flags[flag]}\n"
+                for flag in sorted(flags)
+            )
+
+        sources.append((name, source, option_text))
 
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    for name, source in sources:
+    for name, source, option_text in sources:
         shutil.copy2(source, out_dir / name)
+
+        if option_text is not None:
+            options_path = out_dir / f"{name}.options"
+            options_path.write_text(option_text, encoding="utf-8")
+            print(f"Packaged options: {options_path.name}")
+
         print(f"Packaged: {name}")
 
 
