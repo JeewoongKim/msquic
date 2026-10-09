@@ -43,4 +43,6 @@ target_link_libraries(datapath_raw_fuzz PRIVATE
 set_target_properties(datapath_raw_fuzz PROPERTIES
     LINKER_LANGUAGE CXX
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/fuzzers"
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/fuzzers"
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/fuzzers"
 )
