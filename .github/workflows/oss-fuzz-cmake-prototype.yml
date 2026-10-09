@@ -52,9 +52,9 @@ jobs:
           cmake -S "$PWD" -B "$BUILD_DIR" \
               -DQUIC_BUILD_FUZZERS=ON
 
-          # Build only the first fuzzer.
+          # Build all first fuzzers.
           cmake --build "$BUILD_DIR" \
-              --target datapath_raw_fuzz fuzz \
+              --target all_fuzzers \
               --parallel 1
 
           # Deliver the fuzzer executable to OSS-Fuzz.
@@ -65,6 +65,10 @@ jobs:
           install -m 755 \
               "$BUILD_DIR/fuzzers/fuzz" \
               "$OUT/fuzz"
+
+          install -m 755 \
+              "$BUILD_DIR/fuzzers/spinquic" \
+              "$OUT/spinquic"
           SCRIPT
 
           chmod +x projects/msquic/build.sh
@@ -102,3 +106,12 @@ jobs:
             --sanitizer address \
             msquic \
             fuzz
+
+      - name: Check spinquic
+        working-directory: ${{ runner.temp }}/oss-fuzz
+        run: |
+          python3 infra/helper.py check_build \
+            --engine libfuzzer \
+            --sanitizer address \
+            msquic \
+            spinquic
