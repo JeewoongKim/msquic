@@ -12,13 +12,7 @@ export CXXFLAGS="${CXXFLAGS:-} -Wno-error=invalid-unevaluated-string"
 
 cd "$ROOT_DIR"
 
-pwsh ./scripts/build.ps1 \
-    -Static \
-    -DisableTest \
-    -DisablePerf \
-    -DisableLogs \
-    -Parallel 1 \
-    -ConfigureOnly
+pwsh ./scripts/build.ps1 -ForFuzzing -Parallel 1
 
 BUILD_CONFIG="$(find "$ROOT_DIR/build" \
     -name 'msquic-config.cmake' -print -quit)"
@@ -29,13 +23,6 @@ if [[ -z "$BUILD_CONFIG" ]]; then
 fi
 
 BUILD_DIR="$(dirname "$BUILD_CONFIG")"
-
-cmake -S "$ROOT_DIR" -B "$BUILD_DIR" \
-    -DQUIC_BUILD_FUZZERS=ON
-
-cmake --build "$BUILD_DIR" \
-    --target all_fuzzers \
-    --parallel 1
 
 python3 "$ROOT_DIR/scripts/oss-fuzz-package.py" \
     --manifest "$ROOT_DIR/src/fuzzing/oss-fuzz.json" \

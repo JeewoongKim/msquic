@@ -1,0 +1,106 @@
+name: OSS-Fuzz CMake Prototype
+
+on:
+  push:
+    branches:
+      - issue-6033-oss-fuzz-powershell
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout MsQuic
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Clone OSS-Fuzz
+        run: |
+          git clone --depth=1 \
+            https://github.com/google/oss-fuzz.git \
+            "$RUNNER_TEMP/oss-fuzz"
+
+      - name: Configure CMake build script
+        working-directory: ${{ runner.temp }}/oss-fuzz
+        run: |
+          cat > projects/msquic/build.sh <<'SCRIPT'
+          #!/bin/bash -eu
+
+          exec bash "$SRC/msquic/scripts/oss-fuzz.sh"
+          SCRIPT
+
+          chmod +x projects/msquic/build.sh
+
+      - name: Build datapath_raw_fuzz
+        working-directory: ${{ runner.temp }}/oss-fuzz
+        run: |
+          python3 infra/helper.py build_fuzzers \
+            --clean \
+            --engine libfuzzer \
+            --sanitizer address \
+            msquic \
+            "$GITHUB_WORKSPACE"
+
+      - name: Verify manifest packaging
+        working-directory: ${{ runner.temp }}/oss-fuzz
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          repo = Path(os.environ["GITHUB_WORKSPACE"])
+          out = Path(os.environ["RUNNER_TEMP"]) / "oss-fuzz/build/out/msquic"
+
+          manifest = json.loads(
+              (repo / "src/fuzzing/oss-fuzz.json").read_text()
+          )
+          expected = {entry["name"] for entry in manifest["targets"]}
+
+          # Exclude the OSS-Fuzz infrastructure executable.
+          infrastructure = {"llvm-symbolizer"}
+
+          actual = {
+              path.name
+              for path in out.iterdir()
+              if path.is_file()
+              and os.access(path, os.X_OK)
+              and path.name not in infrastructure
+          }
+
+          print("Expected:", sorted(expected))
+          print("Packaged:", sorted(actual))
+
+          assert actual == expected, (
+              f"Packaging mismatch: expected {expected}, got {actual}"
+          )
+
+          expected_options = {
+              f'{entry["name"]}.options'
+              for entry in manifest["targets"]
+              if "options" in entry
+          }
+
+          actual_options = {
+              path.name
+              for path in out.glob("*.options")
+          }
+
+          print("Expected options:", sorted(expected_options))
+          print("Packaged options:", sorted(actual_options))
+
+          assert actual_options == expected_options
+          PY
+
+      - name: Check all packaged fuzzers
+        working-directory: ${{ runner.temp }}/oss-fuzz
+        run: |
+          python3 infra/helper.py check_build \
+            --engine libfuzzer \
+            --sanitizer address \
+            msquic
