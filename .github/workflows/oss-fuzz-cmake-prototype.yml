@@ -35,6 +35,15 @@ jobs:
           export CXXFLAGS="${CXXFLAGS:-} -Wno-error=invalid-unevaluated-string"
 
           pwsh ./scripts/build.ps1 -ForFuzzing -Parallel 1
+          echo "=== CMake configuration ==="
+          grep -E '^(CMAKE_GENERATOR|CMAKE_BUILD_TYPE):' \
+              "$SRC/msquic/build/linux/x64_quictls/CMakeCache.txt" || true
+
+          echo "=== Fuzzer output locations ==="
+          find "$SRC/msquic/build" "$SRC/msquic/artifacts" \
+              \( -name datapath_raw_fuzz -o -name fuzz -o -name spinquic \) \
+              -print || true
+
           pwsh ./scripts/oss-fuzz-binplace.ps1
           SCRIPT
 
