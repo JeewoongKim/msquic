@@ -31,7 +31,11 @@ jobs:
           cat > projects/msquic/build.sh <<'SCRIPT'
           #!/bin/bash -eu
 
-          exec bash "$SRC/msquic/scripts/oss-fuzz.sh"
+          export CFLAGS="${CFLAGS:-} -Wno-error=invalid-unevaluated-string"
+          export CXXFLAGS="${CXXFLAGS:-} -Wno-error=invalid-unevaluated-string"
+
+          pwsh ./scripts/build.ps1 -ForFuzzing -Parallel 1
+          pwsh ./scripts/oss-fuzz-binplace.ps1
           SCRIPT
 
           chmod +x projects/msquic/build.sh
