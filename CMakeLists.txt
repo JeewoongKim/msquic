@@ -85,6 +85,7 @@ endif()
 
 option(QUIC_BUILD_TOOLS "Builds the tools code" OFF)
 option(QUIC_BUILD_TEST "Builds the test code" OFF)
+option(QUIC_BUILD_FUZZERS "Builds the fuzz targets" OFF)
 option(QUIC_BUILD_PERF "Builds the perf code" OFF)
 option(QUIC_BUILD_SHARED "Builds msquic as a dynamic library" ON)
 option(QUIC_ENABLE_LOGGING "Enables logging" OFF)
@@ -987,6 +988,10 @@ add_subdirectory(src/generated)
 add_subdirectory(src/core)
 add_subdirectory(src/platform)
 add_subdirectory(src/bin)
+
+if(QUIC_BUILD_FUZZERS)
+    add_subdirectory(src/fuzzing)
+endif()
 
 # Tool code
 if(QUIC_BUILD_TOOLS)

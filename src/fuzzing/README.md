@@ -64,6 +64,12 @@ Most of developer should be under [vendor_ccs]. Please follow instruction in [ve
 ### Login OSS-Fuzz dashabord
 Your email need to be associated with google account
 
+## OSS-Fuzz build integration
+The OSS-Fuzz integration uses two scripts from this repository:
+- `scripts/build.ps1 -ForFuzzing` configures and builds the `all_fuzzers` CMake target.
+- `scripts/oss-fuzz-binplace.ps1` copies the fuzzers listed in `src/fuzzing/oss-fuzz.json` and their optional runtime settings to `$OUT`.
+These scripts are intended to be invoked from `projects/msquic/build.sh` in the google/oss-fuzz repository.
+
 ## Before adding change....
 Please go to [msquic project directory] in [OSS-Fuzz] whether your change can be run without issue.  
 You might need to change `Dockerfile` and/or `build.sh` for installing libraries, COPYing fuzzing source, configuration files and build options.

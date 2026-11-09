@@ -81,6 +81,9 @@ This script provides helpers for building msquic.
 .PARAMETER ConfigureOnly
     Run configuration only.
 
+.PARAMETER ForFuzzing
+    Builds the OSS-Fuzz targets. Invoked by the OSS-Fuzz build integration.
+
 .PARAMETER CI
     Build is occuring from CI
 
@@ -208,6 +211,9 @@ param (
     [switch]$ConfigureOnly = $false,
 
     [Parameter(Mandatory = $false)]
+    [switch]$ForFuzzing = $false,
+
+    [Parameter(Mandatory = $false)]
     [switch]$CI = $false,
 
     [Parameter(Mandatory = $false)]
@@ -249,6 +255,13 @@ param (
     [Parameter(Mandatory = $false)]
     [switch]$EnableGCov = $false
 )
+
+if ($ForFuzzing) {
+    $Static = $true
+    $DisableTest = $true
+    $DisablePerf = $true
+    $DisableLogs = $true
+}
 
 Set-StrictMode -Version 'Latest'
 $PSDefaultParameterValues['*:ErrorAction'] = 'Stop'
@@ -460,6 +473,11 @@ function CMake-Generate {
     if($Static) {
         $Arguments += " -DQUIC_BUILD_SHARED=off"
     }
+    if ($ForFuzzing) {
+        $Arguments += " -DQUIC_BUILD_FUZZERS=on"
+    } else {
+        $Arguments += " -DQUIC_BUILD_FUZZERS=off"
+    }
     $Arguments += " -DQUIC_TLS_LIB=" + $Tls
     $Arguments += " -DQUIC_OUTPUT_DIR=""$ArtifactsDir"""
 
@@ -588,6 +606,9 @@ function CMake-Generate {
 # Uses cmake to generate the build configuration files.
 function CMake-Build {
     $Arguments = "--build ."
+    if ($ForFuzzing) {
+        $Arguments += " --target all_fuzzers"
+    }
     if ($Parallel -gt 0) {
         $Arguments += " --parallel $($Parallel)"
     } elseif ($Parallel -eq 0) {
