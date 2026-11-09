@@ -8,8 +8,7 @@ if ([string]::IsNullOrWhiteSpace($env:OUT)) {
 
 $RootDir = Split-Path $PSScriptRoot -Parent
 $BuildConfig = & (Join-Path $PSScriptRoot 'get-buildconfig.ps1')
-$BuildDir = Join-Path $RootDir "build/$($BuildConfig.Platform)/$($BuildConfig.Arch)_$($BuildConfig.Tls)"
-$BinDir = Join-Path $BuildDir 'fuzzers'
+$BinDir = $BuildConfig.ArtifactsDir
 
 $ManifestPath = Join-Path $RootDir 'src/fuzzing/oss-fuzz.json'
 $Manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json

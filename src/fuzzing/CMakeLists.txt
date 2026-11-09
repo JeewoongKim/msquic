@@ -40,7 +40,6 @@ function(add_oss_fuzzer target source)
 
     set_target_properties(${target} PROPERTIES
         LINKER_LANGUAGE CXX
-        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/fuzzers"
     )
 endfunction()
 
